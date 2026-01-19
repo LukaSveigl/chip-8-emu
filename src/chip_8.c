@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "chip_8.h"
@@ -82,5 +83,211 @@ bool chip_8_load(chip_8 *emu, const char *path) {
 }
 
 void chip_8_emulate_cycle(chip_8 *emu) {
+    emu->_opcode = emu->_memory[emu->_pc] | emu->_memory[emu->_pc + 1];
 
+    switch (emu->_opcode & 0xF000) {
+        case 0x0000:
+	    if (emu->_opcode == 0x00E0) {
+		// 0x00E0 - Clear the display.
+		memset(emu->_framebuffer, 0, FB_SIZE);
+		emu->_pc += 2;
+	    } else if (emu->_opcode == 0x00EE) {
+		// Return from the subroutine.
+		emu->_pc = emu->_stack[emu->_sp];
+		emu->_sp--;
+	    }
+	    break;
+        case 0x1000:
+	    // Jumps to address at NNN.
+	    emu->_pc  = emu->_opcode & 0x0FFF;
+	    break;
+        case 0x2000:
+	    // Calls subroutine at NNN.
+	    emu->_sp++;
+	    emu->_stack[emu->_sp] = emu->_pc;
+	    emu->_pc = emu->_opcode & 0x0FFF;
+	    break;
+        case 0x3000: {
+	    // If Vx == kk, skips next instruction.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t kk = (emu->_opcode & 0x00FF);
+	    if (emu->_V[x] == kk) {
+		emu->_pc += 4;
+	    } else {
+		emu->_pc += 2;
+	    }
+	    break;
+        }
+        case 0x4000: {
+	    // If Vx != kk, skips next instruction.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t kk = (emu->_opcode & 0x00FF);
+	    if (emu->_V[x] != kk) {
+		emu->_pc += 4;
+	    } else {
+		emu->_pc += 2;
+	    }
+	    break;
+        }
+        case 0x5000: {
+	    // If Vx == Vy, skips the next instruction.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+	    if (emu->_V[x] == emu->_V[y]) {
+		emu->_pc += 4;
+	    } else {
+		emu->_pc += 2;
+	    }
+	    break;
+        }
+        case 0x6000: {
+	    // Set Vx = kk.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t kk = (emu->_opcode & 0x00FF);
+	    emu->_V[x] = kk;
+	    emu->_pc += 2;
+	    break;
+	}
+        case 0x7000: {
+	    // Add kk to Vx.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t kk = (emu->_opcode & 0x00FF);
+	    emu->_V[x] = emu->_V[x] + kk;
+	    emu->_pc += 2;
+	    break;
+	}
+        case 0x8000: {
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+	    switch (emu->_opcode & 0x000F) {
+	        case 0x0000: {
+		    // Set Vx = Vy.
+		    emu->_V[x] = emu->_V[y];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0001: {
+		    // Set Vx = Vx OR Vy.
+		    emu->_V[x] = emu->_V[x] | emu->_V[y];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0002: {
+		    // Set Vx = Vx AND Vy.
+		    emu->_V[x] = emu->_V[x] & emu->_V[y];
+		    emu->_pc += 2;
+		    break;
+		}
+    	        case 0x0003: {
+		    // Set Vx = Vx XOR Vy.
+		    emu->_V[x] = emu->_V[x] ^ emu->_V[y];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0004: {
+		    // Set Vx = Vx + Vy. If result > 8 bits (255),
+		    // set the carry bit.
+		    if (emu->_V[x] + emu->_V[y] > 255) {
+			emu->_V[0xF] = 1;
+		    } else {
+			emu->_V[0xF] = 0;
+		    }
+		    emu->_V[x] = emu->_V[x] + emu->_V[y];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0005: {
+		    // Set Vx = Vx - Vy. If Vx < Vy, set the borrow
+		    // bit.
+		    if (emu->_V[x] < emu->_V[y]) {
+			emu->_V[0xF] = 1;
+		    } else {
+			emu->_V[0xF] = 0;
+		    }
+		    emu->_V[x] = emu->_V[x] - emu->_V[y];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0006: {
+		    // Set Vx = Vx SHR 1. If least significant bit
+		    // of Vx is 1, set Vf to 1. Vx is divided
+		    // by 2.
+		    emu->_V[0xF] = emu->_V[x] & 0x1;
+		    emu->_V[x] = emu->_V[x] >> 1;
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0007: {
+		    // Set Vx = Vy - Vx. If Vx > Vy, set the borrow
+		    // bit.
+		    if (emu->_V[x] > emu->_V[y]) {
+			emu->_V[0xF] = 1;
+		    } else {
+			emu->_V[0xF] = 0;
+		    }
+		    emu->_V[x] = emu->_V[y] - emu->_V[x];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x000E: {
+		    // Set Vx = Vx SHL 1. If most significant bit
+		    // of Vx is 1, set Vf to 1. Vx is multiplied
+		    // by 2.
+		    emu->_V[0xF] = emu->_V[x] >> 7;
+		    emu->_V[x] = emu->_V[x] << 1;
+		    emu->_pc += 2;
+		    break;
+		}
+	        default:
+		    // TODO: Add error reporting.
+		    break;
+	    }
+	    break;
+	}
+        case 0x9000: {
+	    // If Vx == Vy, skip next instruction.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+	    if (emu->_V[x] == emu->_V[y]) {
+		emu->_pc += 4;
+	    } else {
+		emu->_pc += 2;
+	    }
+	    break;
+	}
+        case 0xA000: {
+	    // Set I = NNN.
+	    emu->_I = emu->_opcode & 0x0FFF;
+	    break;
+	}
+        case 0xB000: {
+	    // Jump to location NNN + V0.
+	    emu->_pc = emu->_V[0x0] + (emu->_opcode & 0x0FFF);
+	    break;
+	}
+        case 0xC000: {
+	    // Set Vx = random byte AND kk.
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t kk = emu->_opcode & 0x00FF;
+	    emu->_V[x] = (rand() % (255 + 1)) & kk;
+	    emu->_pc += 2;
+	    break;
+	}
+        case 0xD000:
+	    break;
+        case 0xE000:
+	    break;
+        case 0xF000:
+	    break;
+        default:
+	    break;
+    };
+
+    if (emu->_delay_timer) {
+	emu->_delay_timer--;
+    }
+  
+    if (emu->_sound_timer > 0) {
+	emu->_sound_timer--;
+    }
 }
