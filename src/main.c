@@ -5,6 +5,8 @@
 
 #include "chip_8.h"
 
+#define TARGET_FPS 250
+
 uint8_t keymap[KEYMAP_SIZE] = {
     KEY_X,
     KEY_ONE,
@@ -24,11 +26,18 @@ uint8_t keymap[KEYMAP_SIZE] = {
     KEY_V
 };
 
-int main(void) {
+int main(int argc, char **argv) {
     chip_8 emu;
     chip_8_init(&emu);
 
-    if (!chip_8_load(&emu, "prg/invaders.ch8")) {
+    if (argc != 2) {
+	fprintf(stderr, "Invalid arguments. Usage: ./main <path-to-file>\n");
+        return 1;
+    }
+
+    const char *path = argv[1];
+
+    if (!chip_8_load(&emu, path)) {
 	fprintf(stderr, "Failed to load ROM\n");
 	return 1;
     }
@@ -44,12 +53,10 @@ int main(void) {
     Color pixels[FB_SIZE];
     UnloadImage(image);
 
-    SetTargetFPS(250);
+    SetTargetFPS(TARGET_FPS);
 
     while (!WindowShouldClose()) {
 	draw = chip_8_emulate_cycle(&emu);
-
-	//printf("pc = %ld\n", (long)emu._pc);
 
 	for (size_t i = 0; i < KEYMAP_SIZE; i++) {
 	    if (IsKeyDown(keymap[i])) {
@@ -65,7 +72,6 @@ int main(void) {
 
 	if (draw) {
 	    for (size_t i = 0; i < FB_SIZE; i++) {
-		// printf("fb[%d] = %ld\n", (int)i, (long)emu._framebuffer);
 	        if (emu._framebuffer[i]) {
 		    pixels[i] = WHITE;
 		} else {
@@ -87,8 +93,6 @@ int main(void) {
             );
 
 	EndDrawing();
-
-	//sleep(1);
     }
     
     CloseWindow();
