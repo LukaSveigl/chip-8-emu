@@ -85,345 +85,472 @@ bool chip_8_load(chip_8 *emu, const char *path) {
 bool chip_8_emulate_cycle(chip_8 *emu) {
     emu->_opcode = emu->_memory[emu->_pc] << 8 | emu->_memory[emu->_pc + 1];
 
-    //printf("Processing opcode: %x ", emu->_opcode);
-
     bool draw = false;
 
     switch (emu->_opcode & 0xF000) {
-        case 0x0000:
-	    if (emu->_opcode == 0x00E0) {
-		// 0x00E0 - Clear the display.
-		memset(emu->_framebuffer, 0, FB_SIZE);
-		draw = true;
-		emu->_pc += 2;
-	    } else if (emu->_opcode == 0x00EE) {
-		// Return from the subroutine.
-		emu->_sp--;
-		emu->_pc = emu->_stack[emu->_sp];
-		emu->_pc += 2;
-		//emu->_sp--;
-	    } else {
-		fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);	
-	    }
-	    break;
-        case 0x1000:
-	    // Jumps to address at NNN.
-	    emu->_pc  = emu->_opcode & 0x0FFF;
-	    break;
-        case 0x2000:
-	    // Calls subroutine at NNN.
-	    emu->_stack[emu->_sp] = emu->_pc;
-	    emu->_sp++;
-	    emu->_pc = emu->_opcode & 0x0FFF;
-	    break;
-        case 0x3000: {
-	    // If Vx == kk, skips next instruction.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t kk = (emu->_opcode & 0x00FF);
-	    if (emu->_V[x] == kk) {
-		emu->_pc += 4;
-	    } else {
-		emu->_pc += 2;
-	    }
-	    break;
+    case 0x0000:
+        if (emu->_opcode == 0x00E0) {
+            _chip_8_cls(emu);
+            draw = true;
+        } else if (emu->_opcode == 0x00EE) {
+            _chip_8_ret(emu);
+        } else {
+            fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
+            exit(1);
         }
-        case 0x4000: {
-	    // If Vx != kk, skips next instruction.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t kk = (emu->_opcode & 0x00FF);
-	    if (emu->_V[x] != kk) {
-		emu->_pc += 4;
-	    } else {
-		emu->_pc += 2;
-	    }
-	    break;
+        break;
+    case 0x1000:
+        _chip_8_jp(emu);
+        break;
+    case 0x2000:
+        _chip_8_call(emu);
+        break;
+    case 0x3000: {
+        _chip_8_se_byte(emu);
+        break;
+    }
+    case 0x4000: {
+        _chip_8_sne_byte(emu);
+        break;
+    }
+    case 0x5000: {
+        _chip_8_se_reg(emu);
+        break;
+    }
+    case 0x6000: {
+        _chip_8_ld_byte(emu);
+        break;
+    }
+    case 0x7000: {
+        _chip_8_add_byte(emu);
+        break;
+    }
+    case 0x8000: {
+        switch (emu->_opcode & 0x000F) {
+            case 0x0000: {
+                _chip_8_ld_reg(emu);
+                break;
+            }
+            case 0x0001: {
+                _chip_8_or_reg(emu);
+                break;
+            }
+            case 0x0002: {
+                _chip_8_and_reg(emu);
+                break;
+            }
+            case 0x0003: {
+                _chip_8_xor_reg(emu);
+                break;
+            }
+            case 0x0004: {
+                _chip_8_add_reg(emu);
+                break;
+            }
+            case 0x0005: {
+                _chip_8_sub_reg(emu);
+                break;
+            }
+            case 0x0006: {
+                _chip_8_shr(emu);
+                break;
+            }
+            case 0x0007: {
+                _chip_8_subn_reg(emu);
+                break;
+            }
+            case 0x000E: {
+                _chip_8_shl(emu);
+                break;
+            }
+            default: {
+                fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
+                exit(1);
+            }
         }
-        case 0x5000: {
-	    // If Vx == Vy, skips the next instruction.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
-	    if (emu->_V[x] == emu->_V[y]) {
-		emu->_pc += 4;
-	    } else {
-		emu->_pc += 2;
-	    }
-	    break;
+        break;
+    }
+    case 0x9000: {
+        _chip_8_sne_reg(emu);
+        break;
+    }
+    case 0xA000: {
+        _chip_8_ld_addr(emu);
+        break;
+    }
+    case 0xB000: {
+        _chip_8_jp_rel(emu);
+        break;
+    }
+    case 0xC000: {
+        _chip_8_rnd(emu);
+        break;
+    }
+    case 0xD000: {
+        _chip_8_drw(emu);
+        draw = true;
+        break;
+    }
+    case 0xE000: {
+        if ((emu->_opcode & 0x00FF) == 0x009E) {
+            _chip_8_skp(emu);
+        } else if ((emu->_opcode & 0x00FF) == 0x00A1) {
+            _chip_8_sknp(emu);
+        } else {
+            fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
+            exit(1);
         }
-        case 0x6000: {
-	    // Set Vx = kk.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t kk = (emu->_opcode & 0x00FF);
-	    emu->_V[x] = kk;
-	    emu->_pc += 2;
-	    break;
-	}
-        case 0x7000: {
-	    // Add kk to Vx.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t kk = (emu->_opcode & 0x00FF);
-	    emu->_V[x] = emu->_V[x] + kk;
-	    emu->_pc += 2;
-	    break;
-	}
-        case 0x8000: {
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
-	    switch (emu->_opcode & 0x000F) {
-	        case 0x0000: {
-		    // Set Vx = Vy.
-		    emu->_V[x] = emu->_V[y];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0001: {
-		    // Set Vx = Vx OR Vy.
-		    emu->_V[x] = emu->_V[x] | emu->_V[y];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0002: {
-		    // Set Vx = Vx AND Vy.
-		    emu->_V[x] = emu->_V[x] & emu->_V[y];
-		    emu->_pc += 2;
-		    break;
-		}
-    	        case 0x0003: {
-		    // Set Vx = Vx XOR Vy.
-		    emu->_V[x] = emu->_V[x] ^ emu->_V[y];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0004: {
-		    // Set Vx = Vx + Vy. If result > 8 bits (255),
-		    // set the carry bit.
-		    if (emu->_V[x] + emu->_V[y] > 255) {
-			emu->_V[0xF] = 1;
-		    } else {
-			emu->_V[0xF] = 0;
-		    }
-		    emu->_V[x] = emu->_V[x] + emu->_V[y];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0005: {
-		    // Set Vx = Vx - Vy. If Vx < Vy, set the borrow
-		    // bit.
-		    if (emu->_V[x] < emu->_V[y]) {
-			emu->_V[0xF] = 1;
-		    } else {
-			emu->_V[0xF] = 0;
-		    }
-		    emu->_V[x] = emu->_V[x] - emu->_V[y];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0006: {
-		    // Set Vx = Vx SHR 1. If least significant bit
-		    // of Vx is 1, set Vf to 1. Vx is divided
-		    // by 2.
-		    emu->_V[0xF] = emu->_V[x] & 0x1;
-		    emu->_V[x] = emu->_V[x] >> 1;
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0007: {
-		    // Set Vx = Vy - Vx. If Vx > Vy, set the borrow
-		    // bit.
-		    if (emu->_V[x] > emu->_V[y]) {
-			emu->_V[0xF] = 0;
-		    } else {
-			emu->_V[0xF] = 1;
-		    }
-		    emu->_V[x] = emu->_V[y] - emu->_V[x];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x000E: {
-		    // Set Vx = Vx SHL 1. If most significant bit
-		    // of Vx is 1, set Vf to 1. Vx is multiplied
-		    // by 2.
-		    emu->_V[0xF] = emu->_V[x] >> 7;
-		    emu->_V[x] = emu->_V[x] << 1;
-		    emu->_pc += 2;
-		    break;
-		}
-	        default: {
-		    fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
-		}
-	    }
-	    break;
-	}
-        case 0x9000: {
-	    // If Vx == Vy, skip next instruction.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
-	    if (emu->_V[x] == emu->_V[y]) {
-		emu->_pc += 4;
-	    } else {
-		emu->_pc += 2;
-	    }
-	    break;
-	}
-        case 0xA000: {
-	    // Set I = NNN.
-	    emu->_I = emu->_opcode & 0x0FFF;
-	    emu->_pc += 2;
-	    break;
-	}
-        case 0xB000: {
-	    // Jump to location NNN + V0.
-	    emu->_pc = emu->_V[0x0] + (emu->_opcode & 0x0FFF);
-	    break;
-	}
-        case 0xC000: {
-	    // Set Vx = random byte AND kk.
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t kk = emu->_opcode & 0x00FF;
-	    emu->_V[x] = (rand() % (255 + 1)) & kk;
-	    emu->_pc += 2;
-	    break;
-	}
-        case 0xD000: {
-	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
-	    uint16_t n = (emu->_opcode & 0x000F);
+        break;
+    }
+    case 0xF000: {
+        switch (emu->_opcode & 0x00FF) {
+            case 0x0007: {
+                _chip_8_ld_dt(emu);
+                break;
+            }
+            case 0x000A: {
+                bool pressed = _chip_8_ld_k(emu);
 
-	    uint16_t v_x = emu->_V[x];
-	    uint16_t v_y = emu->_V[y];
+                if (!pressed) {
+                    return draw;
+                }
 
-	    emu->_V[0xF] = 0;
-	    for (size_t row = 0; row < n; row++) {
-		uint16_t pixel = emu->_memory[emu->_I + row];
-		for (size_t col = 0; col < 8; col++) {
-		    if ((pixel & (0x80 >> col)) != 0) {
-			size_t index = (v_x + col + ((v_y + row) * 64));
-			if (emu->_framebuffer[index] == 1) {
-			    emu->_V[0xF] = 1;
-			}
-			emu->_framebuffer[index] ^= 1;
-		    }
-		}
-	    }
-	    draw = true;
-	    emu->_pc += 2;
-	    break;
-	}
-        case 0xE000: {
-	    uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
-	    printf("Expecting key press: %ld\n", (long)key_index);
-	    if ((emu->_opcode & 0x00FF) == 0x009E) {
-		if (emu->_keymap[key_index] != 0) {
-		    emu->_pc += 4;
-		} else {
-		    emu->_pc += 2;
-		}
-	    } else if ((emu->_opcode & 0x00FF) == 0x00A1) {
-		if (emu->_keymap[key_index] == 0) {
-		    emu->_pc += 4;
-		} else {
-		    emu->_pc += 2;
-		}
-	    } else {
-	        fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
-	    }
-	    break;
-	}
-        case 0xF000: {
-	    switch (emu->_opcode & 0x00FF) {
-	        case 0x0007: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    emu->_V[x] = emu->_delay_timer;
-		    emu->_pc += 2;
-	        }
-	        case 0x000A: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    bool pressed = false;
-		    for (size_t i = 0; i < KEYMAP_SIZE; i++) {
-			if (emu->_keymap[i] != 0) {
-			    emu->_V[x] = i;
-			    pressed = true;
-			}
-		    }
-		    if (!pressed) {
-			return draw;
-		    }
-
-		    emu->_pc += 2;
-		    break;
-	        }
-	        case 0x0015: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    emu->_delay_timer = emu->_V[x];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x0018: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    emu->_sound_timer = emu->_V[x];
-		    emu->_pc += 2;
-		    break;
-		}
-	        case 0x001E: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    if (emu->_I + emu->_V[x] > 0xFFF) {
-			emu->_V[0xF] = 1;
-		    } else {
-			emu->_V[0xF] = 0;
-		    }
-		    emu->_I += emu->_V[x];
-		    emu->_pc += 2;
-		    break;
-	        }
-	        case 0x0029: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    emu->_I = emu->_V[x] * 0x5;
-		    emu->_pc += 2;
-		    break;
-	        }
-	        case 0x0033: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    emu->_memory[emu->_I] = emu->_V[x] / 100;
-		    emu->_memory[emu->_I + 1] = (emu->_V[x] / 10) % 10;
-		    emu->_memory[emu->_I + 2] = emu->_V[x] % 10;
-		    emu->_pc += 2;
-		    break;
- 	        }
-	        case 0x0055: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    for (size_t i = 0; i <= x; ++i) {
-			emu->_memory[emu->_I + i] = emu->_V[i];
-		    }
-
-		    emu->_I += x + 1;
-		    emu->_pc += 2;
-		    break;
-	        }
-	        case 0x0065: {
-		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-		    for (size_t i = 0; i <= x; ++i) {
-			emu->_V[i] = emu->_memory[emu->_I + i];
-		    }
-
-		    emu->_I += x + 1;
-		    emu->_pc += 2;
-		    break;
-	        }
-	        default:
-		    fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
-	    };
-	    break;
-	}
-        default:
-	    fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
-    };
+                emu->_pc += 2;
+                break;
+            }
+            case 0x0015: {
+                _chip_8_ld_dt_reg(emu);
+                break;
+            }
+            case 0x0018: {
+                _chip_8_ld_st_reg(emu);
+                break;
+            }
+            case 0x001E: {
+                _chip_8_add_i_reg(emu);
+                break;
+            }
+            case 0x0029: {
+                _chip_8_ld_f_reg(emu);
+                break;
+            }
+            case 0x0033: {
+                _chip_8_ld_b_reg(emu);
+                break;
+            }
+            case 0x0055: {
+                _chip_8_ld_i_reg(emu);
+                break;
+            }
+            case 0x0065: {
+                _chip_8_ld_reg_i(emu);
+                break;
+            }
+            default: {
+                fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
+                exit(1);
+            }
+        }
+        break;
+    }
+    default: {
+        fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
+        exit(1);
+    }
+    }
 
     if (emu->_delay_timer) {
 	emu->_delay_timer--;
     }
-  
+
     if (emu->_sound_timer > 0) {
 	emu->_sound_timer--;
     }
 
     return draw;
 }
+
+void _chip_8_cls(chip_8 *emu) {
+    memset(emu->_framebuffer, 0, FB_SIZE);
+    emu->_pc += 2;
+}
+
+void _chip_8_ret(chip_8 *emu) {
+    emu->_sp--;
+    emu->_pc = emu->_stack[emu->_sp];
+    emu->_pc += 2;    
+}
+
+void _chip_8_jp(chip_8 *emu) { emu->_pc = emu->_opcode & 0x0FFF; }
+
+void _chip_8_call(chip_8 *emu) {
+    emu->_stack[emu->_sp] = emu->_pc;
+    emu->_sp++;
+    emu->_pc = emu->_opcode & 0x0FFF;
+}
+
+void _chip_8_se_byte(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t kk = (emu->_opcode & 0x00FF);
+    if (emu->_V[x] == kk) {
+	emu->_pc += 4;
+    } else {
+	emu->_pc += 2;
+    }
+}
+
+void _chip_8_sne_byte(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t kk = (emu->_opcode & 0x00FF);
+    if (emu->_V[x] != kk) {
+	emu->_pc += 4;
+    } else {
+	emu->_pc += 2;
+    }    
+}
+
+void _chip_8_se_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+    if (emu->_V[x] == emu->_V[y]) {
+	emu->_pc += 4;
+    } else {
+	emu->_pc += 2;
+    }
+}
+
+void _chip_8_ld_byte(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t kk = (emu->_opcode & 0x00FF);
+    emu->_V[x] = kk;
+    emu->_pc += 2;
+}
+
+void _chip_8_add_byte(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t kk = (emu->_opcode & 0x00FF);
+    emu->_V[x] = emu->_V[x] + kk;
+    emu->_pc += 2;
+}
+
+void _chip_8_ld_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;        
+    emu->_V[x] = emu->_V[y];
+    emu->_pc += 2;
+}
+
+void _chip_8_or_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    emu->_V[x] = emu->_V[x] | emu->_V[y];
+    emu->_pc += 2;
+}
+
+void _chip_8_and_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    emu->_V[x] = emu->_V[x] & emu->_V[y];
+    emu->_pc += 2;
+}
+
+void _chip_8_xor_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    emu->_V[x] = emu->_V[x] ^ emu->_V[y];
+    emu->_pc += 2;    
+}
+
+void _chip_8_add_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    if (emu->_V[x] + emu->_V[y] > 255) {
+	emu->_V[0xF] = 1;
+    } else {
+	emu->_V[0xF] = 0;
+    }
+    emu->_V[x] = emu->_V[x] + emu->_V[y];
+    emu->_pc += 2;
+}
+
+void _chip_8_sub_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    if (emu->_V[x] < emu->_V[y]) {
+	emu->_V[0xF] = 1;
+    } else {
+	emu->_V[0xF] = 0;
+    }
+    emu->_V[x] = emu->_V[x] - emu->_V[y];
+    emu->_pc += 2;    
+}
+
+void _chip_8_shr(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;         
+    emu->_V[0xF] = emu->_V[x] & 0x1;
+    emu->_V[x] = emu->_V[x] >> 1;
+    emu->_pc += 2;    
+}
+
+void _chip_8_subn_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    if (emu->_V[x] > emu->_V[y]) {
+	emu->_V[0xF] = 0;
+    } else {
+	emu->_V[0xF] = 1;
+    }
+    emu->_V[x] = emu->_V[y] - emu->_V[x];
+    emu->_pc += 2;    
+}
+
+void _chip_8_shl(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;     
+    emu->_V[0xF] = emu->_V[x] >> 7;
+    emu->_V[x] = emu->_V[x] << 1;
+    emu->_pc += 2;
+}
+
+void _chip_8_sne_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+    if (emu->_V[x] != emu->_V[y]) {
+	emu->_pc += 4;
+    } else {
+	emu->_pc += 2;
+    }    
+}
+
+void _chip_8_ld_addr(chip_8 *emu) {
+    emu->_I = emu->_opcode & 0x0FFF;
+    emu->_pc += 2;    
+}
+
+void _chip_8_jp_rel(chip_8 *emu) {
+    emu->_pc = emu->_V[0x0] + (emu->_opcode & 0x0FFF);
+}
+
+void _chip_8_rnd(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t kk = emu->_opcode & 0x00FF;
+    emu->_V[x] = (rand() % (255 + 1)) & kk;
+    emu->_pc += 2;    
+}
+
+void _chip_8_drw(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+    uint16_t n = (emu->_opcode & 0x000F);
+
+    uint16_t v_x = emu->_V[x];
+    uint16_t v_y = emu->_V[y];
+
+    emu->_V[0xF] = 0;
+    for (size_t row = 0; row < n; row++) {
+	uint16_t pixel = emu->_memory[emu->_I + row];
+	for (size_t col = 0; col < 8; col++) {
+	    if ((pixel & (0x80 >> col)) != 0) {
+		size_t index = (v_x + col + ((v_y + row) * 64));
+		if (emu->_framebuffer[index] == 1) {
+		    emu->_V[0xF] = 1;
+		}
+		emu->_framebuffer[index] ^= 1;
+	    }
+	}
+    }
+    emu->_pc += 2;    
+}
+
+void _chip_8_skp(chip_8 *emu) {
+    uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
+    if (emu->_keymap[key_index] != 0) {
+	emu->_pc += 4;
+    } else {
+	emu->_pc += 2;
+    }    
+}
+
+void _chip_8_sknp(chip_8 *emu) {
+    uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
+    if (emu->_keymap[key_index] == 0) {
+	emu->_pc += 4;
+    } else {
+	emu->_pc += 2;
+    }    
+}
+
+void _chip_8_ld_dt(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    emu->_V[x] = emu->_delay_timer;
+    emu->_pc += 2;
+}
+
+bool _chip_8_ld_k(chip_8 *emu) {
+    bool pressed = false;
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    for (size_t i = 0; i < KEYMAP_SIZE; i++) {
+	if (emu->_keymap[i] != 0) {
+	    emu->_V[x] = i;
+	    pressed = true;
+	}
+    }
+    return pressed;
+}
+
+void _chip_8_ld_dt_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    emu->_delay_timer = emu->_V[x];
+    emu->_pc += 2;
+}
+
+void _chip_8_ld_st_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    emu->_sound_timer = emu->_V[x];
+    emu->_pc += 2;
+}
+
+void _chip_8_add_i_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    if (emu->_I + emu->_V[x] > 0xFFF) {
+	emu->_V[0xF] = 1;
+    } else {
+	emu->_V[0xF] = 0;
+    }
+    emu->_I += emu->_V[x];
+    emu->_pc += 2;    
+}
+
+void _chip_8_ld_f_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    emu->_I = emu->_V[x] * 0x5;
+    emu->_pc += 2;    
+}
+
+void _chip_8_ld_b_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    emu->_memory[emu->_I] = emu->_V[x] / 100;
+    emu->_memory[emu->_I + 1] = (emu->_V[x] / 10) % 10;
+    emu->_memory[emu->_I + 2] = emu->_V[x] % 10;
+    emu->_pc += 2;
+}
+
+void _chip_8_ld_i_reg(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    for (size_t i = 0; i <= x; ++i) {
+	emu->_memory[emu->_I + i] = emu->_V[i];
+    }
+
+    emu->_I += x + 1;
+    emu->_pc += 2;    
+}
+
+void _chip_8_ld_reg_i(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    for (size_t i = 0; i <= x; ++i) {
+	emu->_V[i] = emu->_memory[emu->_I + i];
+    }
+
+    emu->_I += x + 1;
+    emu->_pc += 2;
+}
+
