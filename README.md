@@ -1,6 +1,16 @@
 # chip-8-emu
 A simple emulator for the CHIP-8 language.
 
+## Usage:
+
+To use the emulator, simply build it using the provided makefile and run it via:
+
+`build/main <path-to-rom>`
+
+A few ROMs are provided in the prg/ subdirectory.
+
+NOTE: This emulator only works on Linux.
+
 ## Sources:
 
 - https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip8.pdf
