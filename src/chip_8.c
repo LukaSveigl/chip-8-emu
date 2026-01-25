@@ -83,7 +83,9 @@ bool chip_8_load(chip_8 *emu, const char *path) {
 }
 
 bool chip_8_emulate_cycle(chip_8 *emu) {
-    emu->_opcode = emu->_memory[emu->_pc] | emu->_memory[emu->_pc + 1];
+    emu->_opcode = emu->_memory[emu->_pc] << 8 | emu->_memory[emu->_pc + 1];
+
+    //printf("Processing opcode: %x ", emu->_opcode);
 
     bool draw = false;
 
@@ -96,8 +98,12 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 		emu->_pc += 2;
 	    } else if (emu->_opcode == 0x00EE) {
 		// Return from the subroutine.
-		emu->_pc = emu->_stack[emu->_sp];
 		emu->_sp--;
+		emu->_pc = emu->_stack[emu->_sp];
+		emu->_pc += 2;
+		//emu->_sp--;
+	    } else {
+		fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);	
 	    }
 	    break;
         case 0x1000:
@@ -106,8 +112,8 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 	    break;
         case 0x2000:
 	    // Calls subroutine at NNN.
-	    emu->_sp++;
 	    emu->_stack[emu->_sp] = emu->_pc;
+	    emu->_sp++;
 	    emu->_pc = emu->_opcode & 0x0FFF;
 	    break;
         case 0x3000: {
@@ -224,9 +230,9 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 		    // Set Vx = Vy - Vx. If Vx > Vy, set the borrow
 		    // bit.
 		    if (emu->_V[x] > emu->_V[y]) {
-			emu->_V[0xF] = 1;
-		    } else {
 			emu->_V[0xF] = 0;
+		    } else {
+			emu->_V[0xF] = 1;
 		    }
 		    emu->_V[x] = emu->_V[y] - emu->_V[x];
 		    emu->_pc += 2;
@@ -241,9 +247,9 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 		    emu->_pc += 2;
 		    break;
 		}
-	        default:
-		    // TODO: Add error reporting.
-		    break;
+	        default: {
+		    fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
+		}
 	    }
 	    break;
 	}
@@ -261,6 +267,7 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
         case 0xA000: {
 	    // Set I = NNN.
 	    emu->_I = emu->_opcode & 0x0FFF;
+	    emu->_pc += 2;
 	    break;
 	}
         case 0xB000: {
@@ -289,7 +296,7 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 		uint16_t pixel = emu->_memory[emu->_I + row];
 		for (size_t col = 0; col < 8; col++) {
 		    if ((pixel & (0x80 >> col)) != 0) {
-			size_t index = (x + col + ((y + row) * 64));
+			size_t index = (v_x + col + ((v_y + row) * 64));
 			if (emu->_framebuffer[index] == 1) {
 			    emu->_V[0xF] = 1;
 			}
@@ -303,6 +310,7 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 	}
         case 0xE000: {
 	    uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
+	    printf("Expecting key press: %ld\n", (long)key_index);
 	    if ((emu->_opcode & 0x00FF) == 0x009E) {
 		if (emu->_keymap[key_index] != 0) {
 		    emu->_pc += 4;
@@ -316,12 +324,33 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 		    emu->_pc += 2;
 		}
 	    } else {
-		// TODO: Handle error.
+	        fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
 	    }
 	    break;
 	}
         case 0xF000: {
 	    switch (emu->_opcode & 0x00FF) {
+	        case 0x0007: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    emu->_V[x] = emu->_delay_timer;
+		    emu->_pc += 2;
+	        }
+	        case 0x000A: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    bool pressed = false;
+		    for (size_t i = 0; i < KEYMAP_SIZE; i++) {
+			if (emu->_keymap[i] != 0) {
+			    emu->_V[x] = i;
+			    pressed = true;
+			}
+		    }
+		    if (!pressed) {
+			return draw;
+		    }
+
+		    emu->_pc += 2;
+		    break;
+	        }
 	        case 0x0015: {
 		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
 		    emu->_delay_timer = emu->_V[x];
@@ -379,11 +408,13 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
 		    emu->_pc += 2;
 		    break;
 	        }
+	        default:
+		    fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
 	    };
 	    break;
 	}
         default:
-	    break;
+	    fprintf(stderr, "Unknown instruction: %x\n", emu->_opcode);
     };
 
     if (emu->_delay_timer) {

@@ -1,25 +1,97 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include "raylib.h"
 
 #include "chip_8.h"
 
+uint8_t keymap[KEYMAP_SIZE] = {
+    KEY_X,
+    KEY_ONE,
+    KEY_TWO,
+    KEY_THREE,
+    KEY_Q,
+    KEY_W,
+    KEY_E,
+    KEY_A,
+    KEY_S,
+    KEY_D,
+    KEY_Z,
+    KEY_C,
+    KEY_FOUR,
+    KEY_R,
+    KEY_F,
+    KEY_V
+};
+
 int main(void) {
     chip_8 emu;
     chip_8_init(&emu);
 
-    chip_8_load(&emu, "prg/test_opcode.ch8");
+    if (!chip_8_load(&emu, "prg/invaders.ch8")) {
+	fprintf(stderr, "Failed to load ROM\n");
+	return 1;
+    }
 
-    InitWindow(800, 600, "Hello, World");
+    const int width = 800;
+    const int height = 600;
+    bool draw = false;
+
+    InitWindow(width, height, "CHIP-8 Emulator");
+
+    Image image = GenImageColor(64, 32, BLACK);
+    Texture2D texture = LoadTextureFromImage(image);
+    Color pixels[FB_SIZE];
+    UnloadImage(image);
+
+    SetTargetFPS(250);
 
     while (!WindowShouldClose()) {
+	draw = chip_8_emulate_cycle(&emu);
+
+	//printf("pc = %ld\n", (long)emu._pc);
+
+	for (size_t i = 0; i < KEYMAP_SIZE; i++) {
+	    if (IsKeyDown(keymap[i])) {
+		emu._keymap[i] = 1;
+	    }
+
+	    if (IsKeyUp(keymap[i])) {
+		emu._keymap[i] = 0;
+	    }
+	}
+
 	BeginDrawing();
-	ClearBackground(RAYWHITE);
+
+	if (draw) {
+	    for (size_t i = 0; i < FB_SIZE; i++) {
+		// printf("fb[%d] = %ld\n", (int)i, (long)emu._framebuffer);
+	        if (emu._framebuffer[i]) {
+		    pixels[i] = WHITE;
+		} else {
+		    pixels[i] = BLACK;
+		}
+	    }
+
+	    UpdateTexture(texture, pixels);
+	}
+	ClearBackground(BLACK);
+
+	    DrawTexturePro(
+	        texture,
+		(Rectangle) { 0, 0, 64, 32 },
+	        (Rectangle) { 0, 0, GetScreenWidth(), GetScreenHeight() },
+	        (Vector2) {0, 0},
+	        0.0f,
+	        WHITE
+            );
+
 	EndDrawing();
+
+	//sleep(1);
     }
     
     CloseWindow();
     
-    printf("Hello, World!\n");
     return 0;
 }
