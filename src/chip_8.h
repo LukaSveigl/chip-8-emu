@@ -58,6 +58,6 @@ bool chip_8_load(chip_8 *emu, const char *path);
  *
  * @param emu The emulator structure.
  */
-void chip_8_emulate_cycle(chip_8 *emu);
+bool chip_8_emulate_cycle(chip_8 *emu);
 
 #endif // CHIP_8_H

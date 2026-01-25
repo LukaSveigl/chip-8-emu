@@ -82,14 +82,17 @@ bool chip_8_load(chip_8 *emu, const char *path) {
     return true;
 }
 
-void chip_8_emulate_cycle(chip_8 *emu) {
+bool chip_8_emulate_cycle(chip_8 *emu) {
     emu->_opcode = emu->_memory[emu->_pc] | emu->_memory[emu->_pc + 1];
+
+    bool draw = false;
 
     switch (emu->_opcode & 0xF000) {
         case 0x0000:
 	    if (emu->_opcode == 0x00E0) {
 		// 0x00E0 - Clear the display.
 		memset(emu->_framebuffer, 0, FB_SIZE);
+		draw = true;
 		emu->_pc += 2;
 	    } else if (emu->_opcode == 0x00EE) {
 		// Return from the subroutine.
@@ -273,12 +276,112 @@ void chip_8_emulate_cycle(chip_8 *emu) {
 	    emu->_pc += 2;
 	    break;
 	}
-        case 0xD000:
+        case 0xD000: {
+	    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+	    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
+	    uint16_t n = (emu->_opcode & 0x000F);
+
+	    uint16_t v_x = emu->_V[x];
+	    uint16_t v_y = emu->_V[y];
+
+	    emu->_V[0xF] = 0;
+	    for (size_t row = 0; row < n; row++) {
+		uint16_t pixel = emu->_memory[emu->_I + row];
+		for (size_t col = 0; col < 8; col++) {
+		    if ((pixel & (0x80 >> col)) != 0) {
+			size_t index = (x + col + ((y + row) * 64));
+			if (emu->_framebuffer[index] == 1) {
+			    emu->_V[0xF] = 1;
+			}
+			emu->_framebuffer[index] ^= 1;
+		    }
+		}
+	    }
+	    draw = true;
+	    emu->_pc += 2;
 	    break;
-        case 0xE000:
+	}
+        case 0xE000: {
+	    uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
+	    if ((emu->_opcode & 0x00FF) == 0x009E) {
+		if (emu->_keymap[key_index] != 0) {
+		    emu->_pc += 4;
+		} else {
+		    emu->_pc += 2;
+		}
+	    } else if ((emu->_opcode & 0x00FF) == 0x00A1) {
+		if (emu->_keymap[key_index] == 0) {
+		    emu->_pc += 4;
+		} else {
+		    emu->_pc += 2;
+		}
+	    } else {
+		// TODO: Handle error.
+	    }
 	    break;
-        case 0xF000:
+	}
+        case 0xF000: {
+	    switch (emu->_opcode & 0x00FF) {
+	        case 0x0015: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    emu->_delay_timer = emu->_V[x];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x0018: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    emu->_sound_timer = emu->_V[x];
+		    emu->_pc += 2;
+		    break;
+		}
+	        case 0x001E: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    if (emu->_I + emu->_V[x] > 0xFFF) {
+			emu->_V[0xF] = 1;
+		    } else {
+			emu->_V[0xF] = 0;
+		    }
+		    emu->_I += emu->_V[x];
+		    emu->_pc += 2;
+		    break;
+	        }
+	        case 0x0029: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    emu->_I = emu->_V[x] * 0x5;
+		    emu->_pc += 2;
+		    break;
+	        }
+	        case 0x0033: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    emu->_memory[emu->_I] = emu->_V[x] / 100;
+		    emu->_memory[emu->_I + 1] = (emu->_V[x] / 10) % 10;
+		    emu->_memory[emu->_I + 2] = emu->_V[x] % 10;
+		    emu->_pc += 2;
+		    break;
+ 	        }
+	        case 0x0055: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    for (size_t i = 0; i <= x; ++i) {
+			emu->_memory[emu->_I + i] = emu->_V[i];
+		    }
+
+		    emu->_I += x + 1;
+		    emu->_pc += 2;
+		    break;
+	        }
+	        case 0x0065: {
+		    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+		    for (size_t i = 0; i <= x; ++i) {
+			emu->_V[i] = emu->_memory[emu->_I + i];
+		    }
+
+		    emu->_I += x + 1;
+		    emu->_pc += 2;
+		    break;
+	        }
+	    };
 	    break;
+	}
         default:
 	    break;
     };
@@ -290,4 +393,6 @@ void chip_8_emulate_cycle(chip_8 *emu) {
     if (emu->_sound_timer > 0) {
 	emu->_sound_timer--;
     }
+
+    return draw;
 }
