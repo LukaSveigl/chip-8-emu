@@ -1,6 +1,8 @@
 # chip-8-emu
 A simple emulator for the CHIP-8 language.
 
+![preview](res/invaders.png)
+
 ## Usage:
 
 To use the emulator, simply build it using the provided makefile and run it via:
