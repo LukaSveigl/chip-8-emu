@@ -48,7 +48,7 @@ void chip_8_init(chip_8 *emu) {
 bool chip_8_load(chip_8 *emu, const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
-	fprintf(stderr, "Failed to open ROM: %s\n", path);
+        fprintf(stderr, "Failed to open ROM: %s\n", path);
     }
 
     fseek(file, 0, SEEK_END);
@@ -56,26 +56,22 @@ bool chip_8_load(chip_8 *emu, const char *path) {
     rewind(file);
 
     if (file_size > MAX_FILE_SIZE) {
-	fprintf(
-	    stderr,
-	    "Rom exceeds memory size. Max size: %d, ROM size: %d\n",
-	    MAX_FILE_SIZE,
-	    (int)file_size
-	);
-	fclose(file);
-	return false;
+        fprintf(stderr,
+            "Rom exceeds memory size. Max size: %d, ROM size: %d\n",
+            MAX_FILE_SIZE,
+            (int)file_size);
+        fclose(file);
+        return false;
     }
 
     size_t read = fread(emu->_memory + 512, sizeof(int8_t), file_size, file);
     if (read != file_size) {
-	fprintf(
-	    stderr,
-	    "Failed to read full ROM: Expected: %d, Read: %d\n",
-	    (int)file_size,
-	    (int)read
-	);
-	fclose(file);
-	return false;
+        fprintf(stderr,
+            "Failed to read full ROM: Expected: %d, Read: %d\n",
+            (int)file_size,
+            (int)read);
+        fclose(file);
+        return false;
     }
 
     fclose(file);
@@ -260,11 +256,11 @@ bool chip_8_emulate_cycle(chip_8 *emu) {
     }
 
     if (emu->_delay_timer) {
-	emu->_delay_timer--;
+        emu->_delay_timer--;
     }
 
     if (emu->_sound_timer > 0) {
-	emu->_sound_timer--;
+        emu->_sound_timer--;
     }
 
     return draw;
