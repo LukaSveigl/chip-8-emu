@@ -41,7 +41,7 @@ void chip_8_init(chip_8 *emu) {
     emu->_delay_timer = 0;
 
     for (size_t i = 0; i < FONTSET_SIZE; i++) {
-	emu->_memory[i] = chip_8_fontset[i];
+        emu->_memory[i] = chip_8_fontset[i];
     }
 }
 
