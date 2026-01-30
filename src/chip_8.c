@@ -274,7 +274,7 @@ void _chip_8_cls(chip_8 *emu) {
 void _chip_8_ret(chip_8 *emu) {
     emu->_sp--;
     emu->_pc = emu->_stack[emu->_sp];
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_jp(chip_8 *emu) { emu->_pc = emu->_opcode & 0x0FFF; }
@@ -289,9 +289,9 @@ void _chip_8_se_byte(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     uint16_t kk = (emu->_opcode & 0x00FF);
     if (emu->_V[x] == kk) {
-	emu->_pc += 4;
+        emu->_pc += 4;
     } else {
-	emu->_pc += 2;
+        emu->_pc += 2;
     }
 }
 
@@ -299,19 +299,19 @@ void _chip_8_sne_byte(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     uint16_t kk = (emu->_opcode & 0x00FF);
     if (emu->_V[x] != kk) {
-	emu->_pc += 4;
+        emu->_pc += 4;
     } else {
-	emu->_pc += 2;
-    }    
+        emu->_pc += 2;
+    }
 }
 
 void _chip_8_se_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     if (emu->_V[x] == emu->_V[y]) {
-	emu->_pc += 4;
+        emu->_pc += 4;
     } else {
-	emu->_pc += 2;
+        emu->_pc += 2;
     }
 }
 
@@ -331,39 +331,39 @@ void _chip_8_add_byte(chip_8 *emu) {
 
 void _chip_8_ld_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;        
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     emu->_V[x] = emu->_V[y];
     emu->_pc += 2;
 }
 
 void _chip_8_or_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     emu->_V[x] = emu->_V[x] | emu->_V[y];
     emu->_pc += 2;
 }
 
 void _chip_8_and_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     emu->_V[x] = emu->_V[x] & emu->_V[y];
     emu->_pc += 2;
 }
 
 void _chip_8_xor_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     emu->_V[x] = emu->_V[x] ^ emu->_V[y];
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_add_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     if (emu->_V[x] + emu->_V[y] > 255) {
-	emu->_V[0xF] = 1;
+        emu->_V[0xF] = 1;
     } else {
-	emu->_V[0xF] = 0;
+        emu->_V[0xF] = 0;
     }
     emu->_V[x] = emu->_V[x] + emu->_V[y];
     emu->_pc += 2;
@@ -371,37 +371,37 @@ void _chip_8_add_reg(chip_8 *emu) {
 
 void _chip_8_sub_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     if (emu->_V[x] < emu->_V[y]) {
-	emu->_V[0xF] = 1;
+        emu->_V[0xF] = 1;
     } else {
-	emu->_V[0xF] = 0;
+        emu->_V[0xF] = 0;
     }
     emu->_V[x] = emu->_V[x] - emu->_V[y];
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_shr(chip_8 *emu) {
-    uint16_t x = (emu->_opcode & 0x0F00) >> 8;         
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     emu->_V[0xF] = emu->_V[x] & 0x1;
     emu->_V[x] = emu->_V[x] >> 1;
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_subn_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    uint16_t y = (emu->_opcode & 0x00F0) >> 4;            
+    uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     if (emu->_V[x] > emu->_V[y]) {
-	emu->_V[0xF] = 0;
+        emu->_V[0xF] = 0;
     } else {
-	emu->_V[0xF] = 1;
+        emu->_V[0xF] = 1;
     }
     emu->_V[x] = emu->_V[y] - emu->_V[x];
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_shl(chip_8 *emu) {
-    uint16_t x = (emu->_opcode & 0x0F00) >> 8;     
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     emu->_V[0xF] = emu->_V[x] >> 7;
     emu->_V[x] = emu->_V[x] << 1;
     emu->_pc += 2;
@@ -411,15 +411,15 @@ void _chip_8_sne_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     uint16_t y = (emu->_opcode & 0x00F0) >> 4;
     if (emu->_V[x] != emu->_V[y]) {
-	emu->_pc += 4;
+        emu->_pc += 4;
     } else {
-	emu->_pc += 2;
-    }    
+        emu->_pc += 2;
+    }
 }
 
 void _chip_8_ld_addr(chip_8 *emu) {
     emu->_I = emu->_opcode & 0x0FFF;
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_jp_rel(chip_8 *emu) {
@@ -430,7 +430,7 @@ void _chip_8_rnd(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     uint16_t kk = emu->_opcode & 0x00FF;
     emu->_V[x] = (rand() % (255 + 1)) & kk;
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_drw(chip_8 *emu) {
@@ -443,36 +443,36 @@ void _chip_8_drw(chip_8 *emu) {
 
     emu->_V[0xF] = 0;
     for (size_t row = 0; row < n; row++) {
-	uint16_t pixel = emu->_memory[emu->_I + row];
-	for (size_t col = 0; col < 8; col++) {
-	    if ((pixel & (0x80 >> col)) != 0) {
-		size_t index = (v_x + col + ((v_y + row) * 64));
-		if (emu->_framebuffer[index] == 1) {
-		    emu->_V[0xF] = 1;
-		}
-		emu->_framebuffer[index] ^= 1;
-	    }
-	}
+        uint16_t pixel = emu->_memory[emu->_I + row];
+        for (size_t col = 0; col < 8; col++) {
+            if ((pixel & (0x80 >> col)) != 0) {
+                size_t index = (v_x + col + ((v_y + row) * 64));
+                if (emu->_framebuffer[index] == 1) {
+                    emu->_V[0xF] = 1;
+                }
+                emu->_framebuffer[index] ^= 1;
+            }
+        }
     }
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_skp(chip_8 *emu) {
     uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
     if (emu->_keymap[key_index] != 0) {
-	emu->_pc += 4;
+        emu->_pc += 4;
     } else {
-	emu->_pc += 2;
-    }    
+        emu->_pc += 2;
+    }
 }
 
 void _chip_8_sknp(chip_8 *emu) {
     uint16_t key_index = emu->_V[(emu->_opcode & 0x0F00) >> 8];
     if (emu->_keymap[key_index] == 0) {
-	emu->_pc += 4;
+        emu->_pc += 4;
     } else {
-	emu->_pc += 2;
-    }    
+        emu->_pc += 2;
+    }
 }
 
 void _chip_8_ld_dt(chip_8 *emu) {
@@ -485,10 +485,10 @@ bool _chip_8_ld_k(chip_8 *emu) {
     bool pressed = false;
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     for (size_t i = 0; i < KEYMAP_SIZE; i++) {
-	if (emu->_keymap[i] != 0) {
-	    emu->_V[x] = i;
-	    pressed = true;
-	}
+        if (emu->_keymap[i] != 0) {
+            emu->_V[x] = i;
+            pressed = true;
+        }
     }
     return pressed;
 }
@@ -508,18 +508,18 @@ void _chip_8_ld_st_reg(chip_8 *emu) {
 void _chip_8_add_i_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     if (emu->_I + emu->_V[x] > 0xFFF) {
-	emu->_V[0xF] = 1;
+        emu->_V[0xF] = 1;
     } else {
-	emu->_V[0xF] = 0;
+        emu->_V[0xF] = 0;
     }
     emu->_I += emu->_V[x];
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_ld_f_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     emu->_I = emu->_V[x] * 0x5;
-    emu->_pc += 2;    
+    emu->_pc += 2;
 }
 
 void _chip_8_ld_b_reg(chip_8 *emu) {
@@ -533,20 +533,19 @@ void _chip_8_ld_b_reg(chip_8 *emu) {
 void _chip_8_ld_i_reg(chip_8 *emu) {
     uint16_t x = (emu->_opcode & 0x0F00) >> 8;
     for (size_t i = 0; i <= x; ++i) {
-	emu->_memory[emu->_I + i] = emu->_V[i];
-    }
-
-    emu->_I += x + 1;
-    emu->_pc += 2;    
-}
-
-void _chip_8_ld_reg_i(chip_8 *emu) {
-    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
-    for (size_t i = 0; i <= x; ++i) {
-	emu->_V[i] = emu->_memory[emu->_I + i];
+        emu->_memory[emu->_I + i] = emu->_V[i];
     }
 
     emu->_I += x + 1;
     emu->_pc += 2;
 }
 
+void _chip_8_ld_reg_i(chip_8 *emu) {
+    uint16_t x = (emu->_opcode & 0x0F00) >> 8;
+    for (size_t i = 0; i <= x; ++i) {
+        emu->_V[i] = emu->_memory[emu->_I + i];
+    }
+
+    emu->_I += x + 1;
+    emu->_pc += 2;
+}
